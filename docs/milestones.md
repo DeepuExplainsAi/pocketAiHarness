@@ -5,6 +5,7 @@ Each milestone ends with its acceptance tests passing on the platforms it target
 | # | Scope | Exit criteria |
 |---|---|---|
 | M0 | Go bridge: guard, permission broker, Claude and agy headless backends, WebSocket server | `go vet` and `go test -race` pass. **Done** |
+| M0.5 | Android chat screen: streaming, permission cards, Stop; connects to a bridge started by hand | Unit tests pass, debug APK builds. **Done**. Not yet run on a device |
 | M1 | Android app shell: project picker (SAF), file tree, editor with tabs and conflict-safe save, search | Acceptance B on a device |
 | M2 | Terminal: native PTY sessions, foreground service, stop-all | Acceptance C on a device |
 | M3 | Android environment: PRoot userland, verified downloads, install of `claude` and `agy` | Acceptance C and G |

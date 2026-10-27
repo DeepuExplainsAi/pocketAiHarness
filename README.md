@@ -2,7 +2,7 @@
 
 A mobile and desktop IDE with an integrated AI coding agent, a Git client and a full terminal. It runs on Android phones and on PCs from one shared core.
 
-Status: pre-alpha. The Go bridge is implemented and tested for Claude Code. The Antigravity gRPC adapter, the Android app and the desktop app are not built yet (see [milestones](docs/milestones.md)).
+Status: pre-alpha. The Go bridge is implemented and tested for Claude Code. The Android app has a chat screen with permission cards and builds, but has not been run on a device and does not start the bridge itself. The Antigravity gRPC adapter and the desktop app are not built yet (see [milestones](docs/milestones.md)).
 
 ## Features
 
@@ -61,6 +61,7 @@ The bridge owns permissions, path containment and secret redaction. The apps sup
 
 | Path | Contents |
 |---|---|
+| `android/` | Kotlin app: protocol client, chat state, Compose chat screen with permission cards |
 | `bridge/` | Go bridge: `guard` (workspace paths, redaction), `perm` (permission broker), `backend` (Claude, agy), `server` (WebSocket) |
 | `docs/protocol.md` | App to bridge messages |
 | `docs/requirements.md` | Requirements, each mapped to an implementation and a test |
@@ -79,6 +80,13 @@ cd bridge
 go vet ./...
 go test -race ./...
 go build ./cmd/pah-bridge
+```
+
+Android (JDK 17, Android SDK 35, Gradle 8.14, about 1.5 GB of RAM):
+
+```sh
+cd android
+gradle :app:testDebugUnitTest :app:assembleDebug
 ```
 
 ## Licence

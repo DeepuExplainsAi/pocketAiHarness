@@ -2,3 +2,8 @@
 .DS_Store
 /dist/
 /bridge/pah-bridge*
+local.properties
+/android/build/
+/android/app/build/
+/android/.gradle/
+/android/.kotlin/
