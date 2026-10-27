@@ -53,7 +53,7 @@ Run every item separately on each supported platform. A feature is listed as sup
 
 ## H. Privacy, security, quality
 - [ ] Telemetry matches the published policy; opt-out works
-- [ ] No local listener on a non-loopback address by default; requests are authenticated
+- [ ] The bridge listens on loopback only; a request without the token, or with an `Origin` header, gets 403
 - [ ] Permissions are requested only when needed, with a stated reason
 - [ ] Screen reader, keyboard-only navigation (desktop), contrast, scaling, touch target size
 - [ ] Crash logs contain no secrets

@@ -1,54 +1,53 @@
 # Architecture
 
-## Layers
+## Components
 
 ```
- Android shell          Desktop shell
- (touch UI, SAF,        (windows, keyboard, native
-  foreground service)    pickers, OS credential store)
-        \                      /
-         \                    /
-          platform adapters (per OS)
-                  |
-            packages/core
+ Android app (Kotlin, Jetpack Compose)        Desktop app
+ UI, native PTY terminal, foreground          UI, OS shell, native pickers
+ service, own Linux userland (PRoot)
+              \                                  /
+               +------ WebSocket, loopback -----+
+                              |
+                    pah-bridge (Go)
+                              |
+        +---------------------+---------------------+
+        |                     |                     |
+  Claude Code CLI       agy headless          agy gRPC (planned)
 ```
 
-`packages/core` has no UI and no OS-specific code. It receives platform behaviour through small interfaces (`Disk`, `Prompter`, `ProviderAdapter`) and never calls a shell.
+| Component | Language | Responsibility |
+|---|---|---|
+| `bridge/` | Go | Sessions, permission broker, workspace guard, redaction, WebSocket server |
+| `android/` | Kotlin | UI, terminal, SAF workspace access, foreground service, environment installer |
+| `desktop/` | To be decided | UI and native integration |
 
-## Core modules
+Go compiles to one static binary per target (`linux/arm64` for the phone userland, `android/arm64`, `windows/amd64`, `darwin/arm64`), so the same bridge runs on phone and PC.
 
-| Module | Responsibility |
+## Bridge packages
+
+| Package | Responsibility |
 |---|---|
-| `paths` | Resolve a path inside a workspace; follow symlinks on the nearest existing ancestor; reject escapes |
-| `permissions` | Default-deny broker. Grants are keyed by kind, target and workspace; they can expire and be revoked |
-| `editor-buffer` | Separate in-memory content from the last known disk hash; detect conflicts on save |
-| `chat-stream` | Order and de-duplicate stream events; mark interrupted or failed output as incomplete |
-| `accounts` | Provider registry. Providers are opt-in; status comes from the provider's official client |
-| `git` | Build `git` argv arrays. No shell strings; paths confined to the repository; confirmation required for destructive and remote operations |
-| `archive` | Validate archive entries before extraction: traversal, symlinks, duplicates, size, disk space |
-| `redact` | Remove secrets from any string before it is logged, exported or sent to a prompt |
+| `guard` | `ResolveInside` confines paths to the workspace, following symlinks on the nearest existing ancestor. `Redact` removes secrets from text |
+| `perm` | Request broker. Allow only on an explicit answer. Disconnect, cancel, unknown id and repeated answer all deny |
+| `backend` | `Session` interface with Claude and agy implementations |
+| `server` | Loopback-only WebSocket with bearer token and `Origin` rejection |
 
-## Platform adapters (planned)
+## Provider backends
 
-| Concern | Android | Desktop |
+| Backend | Interface | State |
 |---|---|---|
-| Workspace access | Storage Access Framework URI grants | OS folder picker, access limited to the chosen folder |
-| Terminal | PTY session, foreground service while a task runs | OS shell, process-group cleanup on exit |
-| Credentials | Android Keystore | Windows Credential Manager, macOS Keychain, libsecret |
-| Provider sign-in | Provider's official browser flow | Provider's official CLI or browser flow |
-| Updates | Signed APK handed to the system installer | Signed installer with rollback |
+| Claude Code | `claude -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages --permission-prompt-tool stdio`. Approvals via `control_request` and `control_response`. Mode and model switch via `set_permission_mode` and `set_model` | Implemented |
+| agy headless | `agy -p --input-format stream-json --output-format stream-json`, resume with `--conversation` | Implemented. No approval channel; agy soft-denies unapproved tools |
+| agy gRPC | Language-server connection | Planned, after traffic capture from a signed-in session |
 
-## Provider adapters
+## Android environment
 
-| Provider | Interface | State |
-|---|---|---|
-| Claude Code | Official CLI, `stream-json` input and output, one process per chat | Planned (M4 candidate) |
-| Antigravity | None documented | Blocked. Enabled only after the provider documents a supported interface |
-
-Adapters implement `ProviderAdapter` and feed events into `ChatStream`. Tool requests go to `PermissionBroker` before anything runs. Features such as live model switching are listed as supported only after an acceptance test passes against the installed CLI version.
+The app ships its own Linux userland so Termux is not required. It runs inside the app's private storage through PRoot. Android's `root` inside PRoot is not superuser. Downloads (rootfs, packages, the `agy` installer, the `claude` CLI) are shown with source, size and version, and checked against a pinned checksum before use.
 
 ## Process boundaries
 
-- The UI process never executes agent-supplied commands directly. It asks the permission broker, then the process runner.
-- Any local helper (bridge or daemon) binds to loopback only, authenticates each request, validates `Origin`, and exposes the minimum tool scope. It is not exposed on the LAN by default.
-- Extension and MCP workers run as separate processes with their own permission scope. They are not presented as a security sandbox.
+- The UI never runs agent commands itself. The bridge asks the user through `perm`.
+- The bridge listens on loopback only, requires a per-run bearer token and rejects any request with an `Origin` header.
+- Secrets pass through `Redact` before reaching logs or error messages.
+- Provider tokens are never read, copied or stored by Pocket AI Harness. Sign-in is done by the provider's own client.

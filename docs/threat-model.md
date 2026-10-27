@@ -20,15 +20,15 @@
 
 | # | Threat | Mitigation | Verified by |
 |---|---|---|---|
-| T1 | Agent or file content causes a write or delete outside the workspace | `resolveInside` follows symlinks and rejects escapes | `paths.test.ts` |
-| T2 | Agent runs a command without the user's knowledge | Default-deny `PermissionBroker`; the prompt shows target and effect | `permissions.test.ts` |
-| T3 | A permission granted for one action is reused for another | Grants keyed by kind, target and workspace; expiry; revoke | `permissions.test.ts` |
-| T4 | Shell injection through a commit message, path or branch name | Argument arrays; branch validation; `--` before paths | `git.test.ts` |
-| T5 | Malicious archive writes outside the target or exhausts disk | Pre-extraction validation of names, links, duplicates, size, free space | `archive.test.ts` |
-| T6 | Secrets leak through logs, crash reports, exports or prompts | `redact` on every outbound string; secrets excluded from backups | `redact.test.ts` |
-| T7 | Partial reply treated as final | `ChatStream` state machine | `chat-stream.test.ts` |
-| T8 | Overwriting a file changed elsewhere | Hash comparison on save; explicit overwrite or reload | `editor-buffer.test.ts` |
-| T9 | A web page or local process calls the local helper | Loopback bind, per-request authentication, `Origin` validation, minimal scope | Planned (R-S2) |
+| T1 | Agent or file content causes a write or delete outside the workspace | `guard.ResolveInside` follows symlinks and rejects escapes | `guard/guard_test.go`, `backend/claude_test.go` |
+| T2 | Agent runs a command without the user's knowledge | Default-deny broker; an explicit answer is required | `perm/broker_test.go`, `server/server_test.go` |
+| T3 | A permission granted for one action is reused for another | One answer per request id | `perm/broker_test.go`, `server/server_test.go` |
+| T4 | Shell injection through a commit message, path or branch name | Argument arrays; branch validation; `--` before paths (M5) | Planned (M5) |
+| T5 | Malicious archive writes outside the target or exhausts disk | Pre-extraction validation of names, links, duplicates, size, free space | Planned (M7) |
+| T6 | Secrets leak through logs, crash reports, exports or prompts | `guard.Redact` on bridge errors; secrets excluded from backups | `guard/guard_test.go` |
+| T7 | Partial reply treated as final | App state machine using `seq` | Planned (app) |
+| T8 | Overwriting a file changed elsewhere | Hash comparison on save (app) | Planned (app) |
+| T9 | A web page or local process calls the local helper | Loopback bind, bearer token, `Origin` rejected | `server/server_test.go` |
 | T10 | Tampered update or environment download | Signature or checksum verification, version pinning, rollback | Planned (R-F4, R-T2) |
 | T11 | Untrusted extension or MCP server reads files or the network | Explicit permission scope per package; separate process; not described as a sandbox | Planned |
 | T12 | Hostile HTML or SVG in chat executes script | Render in an isolated, script-disabled context | Planned (R-C6) |
