@@ -1,8 +1,47 @@
 # Pocket AI Harness
 
-A development workspace for Android phones and desktop PCs: edit files, run a terminal, use Git, and work with an AI coding agent, with every consequential action gated by explicit user consent.
+A mobile and desktop IDE with an integrated AI coding agent, a Git client and a full terminal. It runs on Android phones and on PCs from one shared core.
 
 Status: pre-alpha. The shared core is implemented and tested. The Android and desktop shells are planned (see [milestones](docs/milestones.md)).
+
+## Features
+
+| Area | Description | Status |
+|---|---|---|
+| Editor | Tabs, search, undo/redo, dirty tracking, conflict-safe save | Core done, UI planned |
+| Agent chat | Streaming replies, tool confirmations, interactive questions, per-chat provider | Core done, UI planned |
+| Terminal | PTY sessions in the workspace, background tasks for long builds and servers | Planned |
+| Git | Status, diff, stage, commit, branches, push and pull with confirmation | Argument builder done, UI planned |
+| Standalone environment | Own Linux userland and package manager inside the app sandbox, no Termux required | Planned (Android) |
+| Backup and restore | Validated, transactional, secrets excluded by default | Validation done, rest planned |
+
+## Architecture
+
+```
+  Android app                       Desktop app
+  (touch UI, native PTY)            (windows, keyboard, native shell)
+          \                              /
+           +---------- shared core ------+
+                         |
+              local agent bridge
+        (loopback only, authenticated requests)
+                         |
+          +--------------+--------------+
+          |                             |
+  Claude Code CLI adapter       Antigravity adapter
+  (stream-json, one process     (blocked until a documented
+   per chat)                     interface is available)
+```
+
+The core owns permissions, path containment, editor state, stream handling and Git command construction. Platform shells supply the UI and the operating-system pieces.
+
+## Agent integration
+
+Agents are reached through each provider's documented interface, not by reading terminal output.
+
+- **Claude Code.** The bridge runs the official `claude` CLI in `stream-json` mode and relays events to the app. This gives incremental output, tool-use events and permission prompts without screen scraping. Model, effort and permission mode are meant to change during a chat without restarting it, subject to what the CLI supports; this is verified by acceptance tests before it is advertised.
+- **Antigravity.** The adapter is not started until the provider publishes a documented, supported interface. Pocket AI Harness does not reverse-engineer or depend on private protocol schemas.
+- **Consent.** A tool or permission request from any agent is shown to the user with its target and effect. Only the user interface can approve it.
 
 ## Principles
 

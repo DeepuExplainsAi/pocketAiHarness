@@ -38,6 +38,15 @@
 | Provider sign-in | Provider's official browser flow | Provider's official CLI or browser flow |
 | Updates | Signed APK handed to the system installer | Signed installer with rollback |
 
+## Provider adapters
+
+| Provider | Interface | State |
+|---|---|---|
+| Claude Code | Official CLI, `stream-json` input and output, one process per chat | Planned (M4 candidate) |
+| Antigravity | None documented | Blocked. Enabled only after the provider documents a supported interface |
+
+Adapters implement `ProviderAdapter` and feed events into `ChatStream`. Tool requests go to `PermissionBroker` before anything runs. Features such as live model switching are listed as supported only after an acceptance test passes against the installed CLI version.
+
 ## Process boundaries
 
 - The UI process never executes agent-supplied commands directly. It asks the permission broker, then the process runner.
