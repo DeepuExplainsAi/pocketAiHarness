@@ -118,3 +118,54 @@ func TestControlMessagesAreNotForwardedAsChat(t *testing.T) {
 		t.Fatalf("events = %+v", evs)
 	}
 }
+
+func TestUnexpectedPathShapeIsDenied(t *testing.T) {
+	asked := false
+	dir := t.TempDir()
+	script := filepath.Join(dir, "c.sh")
+	body := strings.Replace(fakeClaude, `"file_path":"'"$FAKE_TARGET"'"`, `"file_path":["/etc/passwd"]`, 1)
+	os.WriteFile(script, []byte(body), 0o755)
+	t.Setenv("FAKE_OUT", filepath.Join(dir, "a.json"))
+	s, err := StartClaude(context.Background(), script, Options{Cwd: dir, Ask: func(context.Context, ToolRequest) Decision { asked = true; return Decision{Allow: true} }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	for range s.Events() {
+	}
+	got, _ := os.ReadFile(filepath.Join(dir, "a.json"))
+	if asked || !strings.Contains(string(got), `"behavior":"deny"`) {
+		t.Fatalf("asked=%v answer=%s", asked, got)
+	}
+}
+
+func TestAutoApprovingModesAreRefused(t *testing.T) {
+	for _, m := range []string{"acceptEdits", "auto", "bypassPermissions", "dontAsk"} {
+		if _, err := StartClaude(context.Background(), "/bin/true", Options{Mode: m}); err != ErrModeNotAllowed {
+			t.Errorf("mode %q: %v", m, err)
+		}
+	}
+}
+
+func TestPendingApprovalEndsWhenProviderExits(t *testing.T) {
+	dir := t.TempDir()
+	script := filepath.Join(dir, "c.sh")
+	os.WriteFile(script, []byte("#!/bin/sh\necho '{\"type\":\"control_request\",\"request_id\":\"q\",\"request\":{\"subtype\":\"can_use_tool\",\"tool_name\":\"Bash\",\"input\":{}}}'\nexit 0\n"), 0o755)
+	released := make(chan struct{})
+	s, err := StartClaude(context.Background(), script, Options{Cwd: dir, Ask: func(ctx context.Context, _ ToolRequest) Decision {
+		<-ctx.Done()
+		close(released)
+		return Decision{}
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	for range s.Events() {
+	}
+	select {
+	case <-released:
+	case <-time.After(3 * time.Second):
+		t.Fatal("approval still pending after the provider exited")
+	}
+}

@@ -25,7 +25,7 @@
 | T3 | A permission granted for one action is reused for another | One answer per request id | `perm/broker_test.go`, `server/server_test.go` |
 | T4 | Shell injection through a commit message, path or branch name | Argument arrays; branch validation; `--` before paths (M5) | Planned (M5) |
 | T5 | Malicious archive writes outside the target or exhausts disk | Pre-extraction validation of names, links, duplicates, size, free space | Planned (M7) |
-| T6 | Secrets leak through logs, crash reports, exports or prompts | `guard.Redact` on bridge errors; secrets excluded from backups | `guard/guard_test.go` |
+| T6 | Secrets leak through logs, crash reports, exports or prompts | `guard.Redact` on bridge errors; secrets excluded from backups (planned, M7); provider events and permission payloads are forwarded unredacted | `guard/guard_test.go` |
 | T7 | Partial reply treated as final | App state machine using `seq` | Planned (app) |
 | T8 | Overwriting a file changed elsewhere | Hash comparison on save (app) | Planned (app) |
 | T9 | A web page or local process calls the local helper | Loopback bind, bearer token, `Origin` rejected | `server/server_test.go` |

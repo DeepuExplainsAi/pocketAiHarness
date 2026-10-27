@@ -6,7 +6,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.int
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -29,7 +29,10 @@ sealed interface Inbound {
 object Protocol {
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun parse(text: String): Inbound? {
+    /** Returns null for anything that is not a well-formed bridge message. Never throws. */
+    fun parse(text: String): Inbound? = runCatching { parseUnsafe(text) }.getOrNull()
+
+    private fun parseUnsafe(text: String): Inbound? {
         val o = runCatching { json.parseToJsonElement(text).jsonObject }.getOrNull() ?: return null
         val chat = o.str("chat")
         return when (o.str("type")) {
@@ -38,7 +41,7 @@ object Protocol {
             "error" -> Inbound.Error(chat, o.str("message") ?: "unknown error")
             "event" -> {
                 val raw = o["raw"] as? JsonObject
-                val seq = o["seq"]?.jsonPrimitive?.int
+                val seq = (o["seq"] as? JsonPrimitive)?.intOrNull
                 if (chat != null && raw != null && seq != null) Inbound.Event(chat, seq, raw) else null
             }
             "permission" -> {

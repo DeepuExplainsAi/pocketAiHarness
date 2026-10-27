@@ -13,7 +13,7 @@ class ChatViewModel(
     private val provider: String,
     private val cwd: String,
 ) : ViewModel() {
-    private val chat = UUID.randomUUID().toString()
+    private var chat = UUID.randomUUID().toString()
     private val _state = MutableStateFlow(ChatState())
     val state: StateFlow<ChatState> = _state
 
@@ -27,7 +27,14 @@ class ChatViewModel(
         viewModelScope.launch {
             bridge.connected.collect { up ->
                 _online.value = up
-                if (up) bridge.send(Protocol.start(chat, provider, cwd, mode = "manual")) else _state.update { it.disconnected() }
+                if (up) {
+                    // Each connection starts a fresh provider session, so it gets a fresh id and sequence.
+                    chat = UUID.randomUUID().toString()
+                    _state.update { it.copy(lastSeq = 0, lostMessages = false) }
+                    bridge.send(Protocol.start(chat, provider, cwd, mode = if (provider == "claude") "manual" else null))
+                } else {
+                    _state.update { it.disconnected() }
+                }
             }
         }
         bridge.connect()
@@ -35,8 +42,7 @@ class ChatViewModel(
 
     fun send(text: String) {
         if (text.isBlank() || !_online.value) return
-        _state.update { it.userSent(text) }
-        bridge.send(Protocol.send(chat, text))
+        if (bridge.send(Protocol.send(chat, text))) _state.update { it.userSent(text) }
     }
 
     fun stop() { bridge.send(Protocol.interrupt(chat)) }

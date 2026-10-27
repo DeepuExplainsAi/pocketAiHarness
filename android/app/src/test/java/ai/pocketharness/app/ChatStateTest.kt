@@ -93,4 +93,29 @@ class ChatStateTest {
         assertEquals("manual", s["mode"]!!.toString().trim('"'))
         assertNull(s["model"])
     }
+
+    @Test fun gapInSequenceNeverShowsAsComplete() {
+        val s = ChatState().userSent("hi").reduce(delta("c", 1, "a")).reduce(result(3))
+        assertEquals(StreamStatus.Interrupted, s.status)
+        assertTrue(s.lostMessages)
+    }
+
+    @Test fun closeClearsPermissionCards() {
+        val s = ChatState().reduce(Inbound.Permission("c", "r", "Bash", "", null)).reduce(Inbound.Closed("c"))
+        assertTrue(s.permissions.isEmpty())
+    }
+
+    @Test fun malformedEnvelopesDoNotThrow() {
+        assertNull(Protocol.parse("""{"type":"event","chat":"c","seq":"x","raw":{}}"""))
+        assertNull(Protocol.parse("""{"type":"event","chat":"c","seq":{},"raw":{}}"""))
+        assertNull(Protocol.parse("""{"type":"permission","chat":{},"request":"r","tool":"t"}"""))
+        val odd = Inbound.Event("c", 1, Json.parseToJsonElement("""{"type":{"a":1},"event":{"type":["x"]}}""").jsonObject)
+        ChatState().reduce(odd)
+    }
+
+    @Test fun bridgeErrorFailsTheReply() {
+        val e = Inbound.Event("c", 2, Json.parseToJsonElement("""{"type":"bridge_error","message":"too long"}""").jsonObject)
+        val s = ChatState().userSent("hi").reduce(delta("c", 1, "x")).reduce(e)
+        assertEquals(StreamStatus.Failed, s.status)
+    }
 }

@@ -29,9 +29,12 @@ All messages are JSON objects with an `op` field.
 | `error` | `chat`, `message` (secrets removed) |
 | `closed` | `chat` |
 
-`seq` increases by one per chat. The app drops any event with a `seq` it has already seen.
+`seq` increases by one per chat. The app drops any event with a `seq` it has already seen, and treats a gap as lost data: the reply is shown as interrupted, never complete. A new connection starts a new chat id.
+
+A `bridge_error` event (inside `raw`) reports that provider output could not be read.
 
 ## Permission rules
-- Every tool request is shown to the user. Only a `decide` message can allow it.
-- A request is denied when the app disconnects, when the chat closes, when no approval channel exists, and when a path input resolves outside `cwd`. The last case is denied without asking.
+- Every tool request that the provider sends to the bridge is shown to the user. Only a `decide` message can allow it. Claude starts in `manual` mode with user, project and local settings disabled; other modes are refused at start. `plan` is accepted for `mode` changes.
+- A request is denied when the app disconnects, when the chat closes, when the provider exits, when no approval channel exists, and when a file path input resolves outside `cwd`, or has an unexpected shape. Those last two are denied without asking.
+- Shell commands and URLs are shown on the approval card but not checked by the bridge.
 - A request id can be answered once. A second answer returns `error`.

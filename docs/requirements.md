@@ -16,7 +16,7 @@
 
 | ID | Requirement | Status | Where |
 |---|---|---|---|
-| R-W1 | Agent file access is confined to the workspace, including through symlinks | Done | `guard/path.go`; `guard_test.go`; `backend/claude_test.go` |
+| R-W1 | File tool paths (`file_path`, `path`, `notebook_path`) are confined to the workspace, including through symlinks and `..` after a link | Partly done | `guard/path.go`; `guard_test.go`; `backend/claude_test.go`. Not covered: shell commands, URLs, unknown tools, and a link swapped after the check. Those need an OS sandbox (Planned) |
 | R-W2 | Dirty state tracked against the last known disk version | Planned | App |
 | R-W3 | Save detects external changes; overwrite or reload is the user's choice | Planned | App |
 | R-W4 | Run profiles show command, directory, arguments and environment first | Planned | App |
@@ -36,10 +36,11 @@
 |---|---|---|---|
 | R-C1 | Duplicate or out-of-order events are dropped by the app using `seq` | Planned | App; the bridge numbers events |
 | R-C2 | An interrupted or failed reply is never shown as complete | Planned | App |
-| R-C3 | Tool requests show tool, description and input; allow or deny | Done (bridge) | `perm/`, `server/`; `server_test.go` round trip |
+| R-C3 | Claude tool requests that reach the permission callback show tool, description and input; allow or deny | Done (bridge) | `perm/`, `server/`; `server_test.go` round trip |
 | R-C4 | An answer applies to one request only; a repeat is rejected | Done | `broker_test.go`, `server_test.go` |
 | R-C5 | Disconnect, close, cancel and a missing approval channel deny | Done | `broker_test.go`, `claude_test.go` |
 | R-C6 | A tool path outside the workspace is denied without asking | Done | `claude_test.go` |
+| R-C10 | Claude runs with `manual` mode and no user, project or local settings, so allow rules and hooks cannot skip the prompt. Auto-approving modes are refused | Done | `claude_test.go`. Whether every tool and MCP server routes through the callback is not verified |
 | R-C7 | Claude permission mode and model change mid-chat | Done (bridge) | Verified against claude 2.1.311 |
 | R-C8 | Antigravity tool approval | Open | Headless agy has none; needs the gRPC adapter |
 | R-C9 | HTML and SVG in chat are untrusted | Planned | App renderer |

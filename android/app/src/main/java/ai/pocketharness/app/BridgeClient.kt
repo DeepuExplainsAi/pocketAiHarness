@@ -25,7 +25,10 @@ class BridgeClient(private val listen: String, private val token: String) {
         socket = http.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) { _connected.tryEmit(true) }
             override fun onMessage(webSocket: WebSocket, text: String) {
-                Protocol.parse(text)?.let { _messages.tryEmit(it) }
+                val m = Protocol.parse(text) ?: return
+                // A full buffer means the UI cannot keep up. Dropping a message would hide a
+                // permission card or a truncated reply, so end the connection instead.
+                if (!_messages.tryEmit(m)) webSocket.close(1008, "client too slow")
             }
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { _connected.tryEmit(false) }
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { _connected.tryEmit(false) }

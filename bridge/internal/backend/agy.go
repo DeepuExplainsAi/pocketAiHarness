@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"sync"
 	"syscall"
+	"time"
 )
 
 // ErrUnsupported is returned for controls a backend cannot change mid-session.
@@ -28,6 +29,9 @@ type AgyHeadless struct {
 }
 
 func StartAgy(parent context.Context, binary string, o Options) (*AgyHeadless, error) {
+	if o.Mode != "" && o.Mode != "plan" {
+		return nil, ErrModeNotAllowed
+	}
 	args := []string{"-p", "--input-format", "stream-json", "--output-format", "stream-json"}
 	if o.Model != "" {
 		args = append(args, "--model", o.Model)
@@ -53,6 +57,7 @@ func StartAgy(parent context.Context, binary string, o Options) (*AgyHeadless, e
 		cancel()
 		return nil, err
 	}
+	cmd.WaitDelay = 3 * time.Second // escalate to kill if SIGTERM is ignored
 	cmd.Stderr = io.Discard
 	if err := cmd.Start(); err != nil {
 		cancel()
@@ -65,7 +70,7 @@ func StartAgy(parent context.Context, binary string, o Options) (*AgyHeadless, e
 
 func (a *AgyHeadless) read(ctx context.Context, r io.Reader) {
 	defer close(a.events)
-	defer func() { _ = a.cmd.Wait() }()
+	defer func() { a.cancel(); _ = a.cmd.Wait() }()
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
 	for sc.Scan() {

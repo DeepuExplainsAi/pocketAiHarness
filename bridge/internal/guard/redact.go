@@ -5,7 +5,7 @@ import "regexp"
 const Redacted = "[REDACTED]"
 
 var (
-	keyValue = regexp.MustCompile(`(?i)\b([A-Za-z0-9_]*(?:token|secret|password|passwd|api[_-]?key)[A-Za-z0-9_]*)\s*([=:])\s*("[^"]*"|'[^']*'|\S+)`)
+	keyValue = regexp.MustCompile(`(?i)\b([A-Za-z0-9_]*(?:token|secret|password|passwd|api[_-]?key)[A-Za-z0-9_]*)("?\s*[=:]\s*)("[^"]*"|'[^']*'|[^\s,}]+)`)
 	patterns = []*regexp.Regexp{
 		regexp.MustCompile(`\bgh[pousr]_[A-Za-z0-9]{20,}\b`),
 		regexp.MustCompile(`\bsk-[A-Za-z0-9_-]{20,}\b`),

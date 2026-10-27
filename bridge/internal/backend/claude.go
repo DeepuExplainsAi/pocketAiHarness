@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -30,16 +31,22 @@ type Claude struct {
 	seq    int
 }
 
+// ErrModeNotAllowed is returned for permission modes that would skip the user's approval.
+var ErrModeNotAllowed = errors.New("only the manual permission mode is allowed")
+
 func StartClaude(parent context.Context, binary string, o Options) (*Claude, error) {
+	if o.Mode != "" && o.Mode != "manual" {
+		return nil, ErrModeNotAllowed
+	}
 	args := []string{
 		"-p", "--input-format", "stream-json", "--output-format", "stream-json",
 		"--verbose", "--include-partial-messages", "--permission-prompt-tool", "stdio",
+		// User, project and local settings can hold allow rules and hooks that skip the prompt.
+		"--setting-sources", "",
+		"--permission-mode", "manual",
 	}
 	if o.Model != "" {
 		args = append(args, "--model", o.Model)
-	}
-	if o.Mode != "" {
-		args = append(args, "--permission-mode", o.Mode)
 	}
 	if o.Resume != "" {
 		args = append(args, "--resume", o.Resume)
@@ -70,7 +77,7 @@ func StartClaude(parent context.Context, binary string, o Options) (*Claude, err
 
 func (c *Claude) read(r io.Reader) {
 	defer close(c.events)
-	defer func() { _ = c.cmd.Wait() }()
+	defer func() { c.cancel(); _ = c.cmd.Wait() }() // cancel first: pending approvals end with a deny
 
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
@@ -103,6 +110,14 @@ func (c *Claude) read(r io.Reader) {
 			}
 		}
 	}
+	if err := sc.Err(); err != nil {
+		c.seq++
+		raw, _ := json.Marshal(map[string]any{"type": "bridge_error", "message": "provider output could not be read: " + err.Error()})
+		select {
+		case c.events <- Event{Seq: c.seq, Raw: raw}:
+		case <-c.ctx.Done():
+		}
+	}
 }
 
 func (c *Claude) answer(requestID string, r ToolRequest) {
@@ -126,13 +141,21 @@ func (c *Claude) decide(r ToolRequest) Decision {
 	return c.opts.Ask(c.ctx, r)
 }
 
-// outsidePath returns the first path-like input that escapes the workspace.
+// outsidePath returns the first path in the tool input that escapes the workspace.
+// It looks at the known file keys. Shell commands and URLs are not inspected: the user
+// sees them on the approval card, and containment of a command needs an OS sandbox.
 func outsidePath(root string, input map[string]any) string {
 	for _, key := range []string{"file_path", "path", "notebook_path"} {
-		if v, ok := input[key].(string); ok && v != "" {
-			if _, err := guard.ResolveInside(root, v); err != nil {
-				return v
-			}
+		v, present := input[key]
+		if !present {
+			continue
+		}
+		s, ok := v.(string)
+		if !ok || s == "" {
+			return fmt.Sprint(v) // unexpected shape: refuse rather than guess
+		}
+		if _, err := guard.ResolveInside(root, s); err != nil {
+			return s
 		}
 	}
 	return ""
@@ -159,6 +182,9 @@ func (c *Claude) Send(text string) error {
 }
 func (c *Claude) Interrupt() error { return c.control(map[string]any{"subtype": "interrupt"}) }
 func (c *Claude) SetMode(m string) error {
+	if m != "manual" && m != "plan" {
+		return ErrModeNotAllowed
+	}
 	return c.control(map[string]any{"subtype": "set_permission_mode", "mode": m})
 }
 func (c *Claude) SetModel(m string) error {
@@ -172,4 +198,3 @@ func (c *Claude) Close() error {
 }
 
 var _ Session = (*Claude)(nil)
-var _ = fmt.Sprint

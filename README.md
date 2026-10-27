@@ -47,7 +47,7 @@ The bridge owns permissions, path containment and secret redaction. The apps sup
 
 **Antigravity gRPC.** Public schemas are reverse-engineered, unofficial and tied to Antigravity 2.18.1. The installed `agy` 1.4.8 contains a `--hub-port` flag and an `antigravity-hub` auth mode, but the hub protocol is not documented, and it could not be exercised without a signed-in account. The adapter will be written against captured traffic from a real session. Google's forum guidance treats spawning the official binary under the user's own login as compliant and warns against token extraction and unofficial API reverse-engineering, so the gRPC path is opt-in and the headless path stays available.
 
-**Consent.** A tool request from any agent is shown to the user with its target. Only the app can approve it.
+**Consent.** Claude runs in `manual` mode with user, project and local settings disabled, so each tool request reaches the app as an approval card. File paths outside the workspace are denied. The bridge does not confine shell commands or URLs: the card shows them, and the user decides. Antigravity headless has no approval channel in the bridge and is unconfirmed for tool use.
 
 ## Principles
 

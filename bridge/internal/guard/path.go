@@ -19,7 +19,15 @@ func ResolveInside(root, candidate string) (string, error) {
 	}
 	target := candidate
 	if !filepath.IsAbs(target) {
-		target = filepath.Join(realRoot, target)
+		target = realRoot + string(os.PathSeparator) + target // Join would Clean and fold ".." early
+	}
+	// Clean would fold "link/../x" into "x" before the link is followed, hiding an escape.
+	// Resolve ".." only after symlinks, by refusing it in the part that exists.
+	if hasDotDot(target) {
+		var err error
+		if target, err = resolveWithDotDot(target); err != nil {
+			return "", ErrOutsideWorkspace
+		}
 	}
 	target = filepath.Clean(target)
 
@@ -42,4 +50,34 @@ func ResolveInside(root, candidate string) (string, error) {
 		return "", ErrOutsideWorkspace
 	}
 	return target, nil
+}
+
+func hasDotDot(p string) bool {
+	for _, part := range strings.Split(filepath.ToSlash(p), "/") {
+		if part == ".." {
+			return true
+		}
+	}
+	return false
+}
+
+// resolveWithDotDot walks the path element by element so ".." applies to the real directory
+// reached through any symlink, as the operating system would.
+func resolveWithDotDot(p string) (string, error) {
+	cur := string(os.PathSeparator)
+	for _, part := range strings.Split(filepath.ToSlash(p), "/") {
+		switch part {
+		case "", ".":
+			continue
+		case "..":
+			cur = filepath.Dir(cur)
+		default:
+			next := filepath.Join(cur, part)
+			if real, err := filepath.EvalSymlinks(next); err == nil {
+				next = real
+			}
+			cur = next
+		}
+	}
+	return cur, nil
 }

@@ -38,16 +38,17 @@ Go compiles to one static binary per target (`linux/arm64` for the phone userlan
 | Backend | Interface | State |
 |---|---|---|
 | Claude Code | `claude -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages --permission-prompt-tool stdio`. Approvals via `control_request` and `control_response`. Mode and model switch via `set_permission_mode` and `set_model` | Implemented |
-| agy headless | `agy -p --input-format stream-json --output-format stream-json`, resume with `--conversation` | Implemented. No approval channel; agy soft-denies unapproved tools |
+| agy headless | `agy -p --input-format stream-json --output-format stream-json`, resume with `--conversation` | Implemented, not run end to end (needs sign-in). The bridge has no approval channel for it and does not verify agy's own permission settings, so treat it as unconfirmed for tool use |
 | agy gRPC | Language-server connection | Planned, after traffic capture from a signed-in session |
 
-## Android environment
+## Android environment (planned, milestone M3)
 
-The app ships its own Linux userland so Termux is not required. It runs inside the app's private storage through PRoot. Android's `root` inside PRoot is not superuser. Downloads (rootfs, packages, the `agy` installer, the `claude` CLI) are shown with source, size and version, and checked against a pinned checksum before use.
+The app will ship its own Linux userland so Termux is not required. It runs inside the app's private storage through PRoot. Android's `root` inside PRoot is not superuser. Downloads (rootfs, packages, the `agy` installer, the `claude` CLI) are shown with source, size and version, and checked against a pinned checksum before use.
 
 ## Process boundaries
 
 - The UI never runs agent commands itself. The bridge asks the user through `perm`.
+- Known limits: the bridge cannot confine what an approved shell command does, cannot see URLs a tool fetches, and trusts the provider to send every tool use through its permission callback. An OS sandbox is planned. Until then the approval card is the control.
 - The bridge listens on loopback only, requires a per-run bearer token and rejects any request with an `Origin` header.
 - Secrets pass through `Redact` before reaching logs or error messages.
 - Provider tokens are never read, copied or stored by Pocket AI Harness. Sign-in is done by the provider's own client.
